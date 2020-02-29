@@ -6,7 +6,7 @@
 //DHT library  https://github.com/adafruit/DHT-sensor-library
 //GSR code http://ftmedia.eu/diy-gsr-sensor/
 
-//testiung for push
+
 
 ////////////////////////////////////////  LIBRARIES  //////////////////////////////////////////////////////////
 //#include <Adafruit_NeoPixel.h> //NeoPixel control library
@@ -61,11 +61,8 @@ int curMillisForGSR;
 int preMillisForGSR;
 
 
-//NeoPixel
-//#define PIN 6
-//#define NUMPIXELS 3
-//Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
 
+//Fast LED variables
 #define LED_PIN 5
 #define NUM_LEDS 3
 #define BRIGHTNESS  64
@@ -94,37 +91,9 @@ ACKNOWLEDGE acknowledge;
 EasyTransfer ETin, ETout; //We need two EasyTransfer object, one for the data we send, and one for the data we receive.
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-// Gradient palette "bhw1_01_gp", originally from
-// http://soliton.vm.bytemark.co.uk/pub/cpt-city/bhw/bhw1/tn/bhw1_01.png.index.html
-// converted for FastLED with gammas (2.6, 2.2, 2.5)
-// Size: 12 bytes of program space.
+///////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
-DEFINE_GRADIENT_PALETTE( bhw1_01_gp ) {
-    0, 227,101,  3,
-  117, 194, 18, 19,
-  255,  92,  8,192};
-
-
-
-
-
-
-
-
-
-// Gradient palette "bhw1_w00t_gp", originally from
-// http://soliton.vm.bytemark.co.uk/pub/cpt-city/bhw/bhw1/tn/bhw1_w00t.png.index.html
-// converted for FastLED with gammas (2.6, 2.2, 2.5)
-// Size: 16 bytes of program space.
-
-DEFINE_GRADIENT_PALETTE( bhw1_w00t_gp ) {
-    0,   3, 13, 43,
-  104,  78,141,240,
-  188, 255,  0,  0,
-  255,  28,  1,  1};
-
-
-////////////////////////////////////////////////////////////////////////////////////////////
 void setup() {
   Serial.begin(9600); //Baudrate of the Bluetooth modules
  
@@ -171,7 +140,7 @@ void setup() {
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-CRGBPalette16 currentPalette; //palette selection
+//CRGBPalette16 currentPalette; //palette selection
 
 void loop() {
   time = millis();
@@ -191,29 +160,6 @@ void loop() {
   }
   counter ++;
 
-  
-
-//  for (uint8_t i=0; i<NUM_LEDS; i++) {
-//    uint8_t paletteIndex = map(i,0,NUM_LEDS-1,0,240);  //index is now based on pixel number
-//    leds[i] = ColorFromPalette( myPal, paletteIndex, BRIGHTNESS, LINEARBLEND);
-//  }
-//  
-//  FastLED.show();
-//  FastLED.delay(1000);
-////////////////////////////////////////FAST LED//////////////////////////////////////////////
-
-
-
-
-//ChangePalettePeriodically();
-    
-    static uint8_t startIndex = 0;
-    startIndex = startIndex + 1; /* motion speed */
-    
-    FillLEDsFromPaletteColors( startIndex);
-    
-    FastLED.show();
-    FastLED.delay(1000 / UPDATES_PER_SECOND);
 
 
 //////////////////////////////////////////////////////////////////////////////
@@ -231,12 +177,21 @@ void loop() {
     preMillisForGSR = curMillisForGSR;
   }
 
-  if (sensorValue >=65){
-    currentPalette = bhw1_w00t_gp;
+  ////////////////////////////////////////FAST LED//////////////////////////////////////////////
+
+    
+//    static uint8_t startIndex = 0;
+//    startIndex = startIndex + 1; /* motion speed */
+
+  int colorValue = map(sensorValue, 0 , 152, 255,0);
+
+  for( int i = 0; i < NUM_LEDS; i++) {
+    leds[i].setRGB( 255, colorValue, 221);
   }
-  if (sensorValue >=80){
-    currentPalette = bhw1_01_gp;
-  }
+    FastLED.show();
+    FastLED.delay(1000 / UPDATES_PER_SECOND);
+
+
 
   //DHT variables in Celsius
   float humidity = dht.readHumidity();
@@ -262,12 +217,3 @@ void loop() {
   acknowledge.received = false; //reset the acknowledgement of data received to set up new package
 }
 
-void FillLEDsFromPaletteColors( uint8_t colorIndex)
-{
-    uint8_t brightness = 255;
-    
-    for( int i = 0; i < NUM_LEDS; i++) {
-        leds[i] = ColorFromPalette( currentPalette, colorIndex, brightness, currentBlending);
-        colorIndex += 3;
-    }
-}
