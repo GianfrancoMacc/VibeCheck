@@ -6,7 +6,7 @@
 //DHT library  https://github.com/adafruit/DHT-sensor-library
 //GSR code http://ftmedia.eu/diy-gsr-sensor/
 
-
+//testiung for push
 
 ////////////////////////////////////////  LIBRARIES  //////////////////////////////////////////////////////////
 //#include <Adafruit_NeoPixel.h> //NeoPixel control library
