@@ -27,16 +27,16 @@
 
 ///////////////////////////////////////  VARIABLES & OBJECTS  //////////////////////////////////////////////////////////
 
-//Pulse sensor variables
+//Haptic variables
 int seq = 1;
 int wave = 1;
 SFE_HMD_DRV2605L HMD; //Create haptic motor driver object 
 
 
 //Pulse Sensor variables
-const int PulseWire = 0;       // PulseSensor PURPLE WIRE connected to ANALOG PIN 0
+const int PulseWire = A0;       // PulseSensor PURPLE WIRE connected to ANALOG PIN 0
 const int LED13 = 13;          // The on-board Arduino LED, close to PIN 13.
-int Threshold = 550;           // Determine which Signal to "count as a beat" and which to ignore.
+int Threshold = 640;           // Determine which Signal to "count as a beat" and which to ignore.
                                // Use the "Gettting Started Project" to fine-tune Threshold Value beyond default setting.
                                // Otherwise leave the default "550" value. 
 
@@ -54,7 +54,7 @@ DHT dht(DHTPIN, DHTTYPE);
 int sensorPin = A1; // select the input pin for the GSR
 int sensorValue; // variable to store the value coming from the sensor
 
-// Time variables
+// Time variables for GSR
 unsigned long time;
 int secForGSR;
 int curMillisForGSR;
@@ -84,6 +84,8 @@ struct ACKNOWLEDGE
   boolean received = false;
 };
 
+int partnerBPM;
+int myBPM;
 int counter = 0;
 SEND_DATA_STRUCTURE data;
 ACKNOWLEDGE acknowledge;
@@ -102,7 +104,6 @@ void setup() {
 
   //haptic motors /////////////////////////////////////////////////////////////////////////////////
   HMD.begin();
-  Serial.begin(9600);
   HMD.Mode(0); // Internal trigger input mode -- Must use the GO() function to trigger playback.
   HMD.MotorSelect(0x36); // ERM motor, 4x Braking, Medium loop gain, 1.365x back EMF gain
   HMD.Library(2); //1-5 & 7 for ERM motors, 6 for LRA motors 
@@ -116,9 +117,6 @@ void setup() {
   //DHT
   dht.begin();
 
-  //Neopixel
-  //pixels.begin(); // This initializes the NeoPixel library.
-
   //FastLED
   FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
   FastLED.setBrightness(BRIGHTNESS);
@@ -131,8 +129,22 @@ void setup() {
 
   if (pulseSensor.begin()) {
     Serial.println("We created a pulseSensor Object !");  //This prints one time at Arduino power-up,  or on Arduino reset. 
-    
-      delay(200);
+
+    //confirmation light for heartbeat
+    leds[1].setRGB( 255, 0, 0);
+    FastLED.show();
+    delay(200);
+    leds[1] = CRGB :: Black;
+    FastLED.show();
+    delay(200);
+    leds[1].setRGB( 255, 0, 0);
+    FastLED.show();
+    delay(200);
+    leds[1] = CRGB :: Black;
+    FastLED.show();
+
+
+    //heartBeat();
       
   }
   
@@ -143,19 +155,27 @@ void setup() {
 //CRGBPalette16 currentPalette; //palette selection
 
 void loop() {
-  time = millis();
+  time = millis();//millis time for gsr
+  
   if(ETin.receiveData())
   {
     if(acknowledge.received == true) //confirmation of received package
     {
-      HMD.Waveform(seq, wave);
-      HMD.go();
-
-      // pixels.Color takes RGB values, from 0,0,0 up to 255,255,255
-//      pixels.setPixelColor(i, pixels.Color(0,150,0)); // Moderately bright green color.
-//
-//      pixels.show(); // This sends the updated pixel color to the hardware.
-      
+    
+    //confirmation light for heartbeat  FOR DEBUGGING  -----
+    // REMOVE AFTER CODE IS DONE //////////////////////////////////////////////////////////
+    leds[1].setRGB( 0, 255, 0);
+    FastLED.show();
+    delay(200);
+    leds[1] = CRGB :: Black;
+    FastLED.show();
+    delay(200);
+    leds[1].setRGB( 0, 255, 0);
+    FastLED.show();
+    delay(200);
+    leds[1] = CRGB :: Black;
+    FastLED.show();
+    
     }
   }
   counter ++;
@@ -165,23 +185,42 @@ void loop() {
 //////////////////////////////////////////////////////////////////////////////
 
 
-
-
-
   //GSR Calculation
    curMillisForGSR = time / (secForGSR * 1000);
   if(curMillisForGSR != preMillisForGSR) {
   // Read GSR sensor and send over Serial port
     sensorValue = analogRead(sensorPin);
-    Serial.println(sensorValue);
+    //Serial.println(sensorValue);
     preMillisForGSR = curMillisForGSR;
   }
 
-  ////////////////////////////////////////FAST LED//////////////////////////////////////////////
 
+  ////////////////////////////////////DHT variables in Celsius//////////////////////////////
+  
+  float humidity = dht.readHumidity();
+  float temp = dht.readTemperature();
+
+
+
+  /////////////////////////////// asign data to the structure /////////////////////////////////////////
+  //Serial.println(pulseSensor.getBeatsPerMinute());
+  if(counter == 40)//Send data once every 10 seconds
+  {
+
+    myBPM = pulseSensor.getBeatsPerMinute();  // Calls function on our pulseSensor object that returns BPM as an "int".
+                                                  // "myBPM" hold this BPM value now. 
+    data.bpm = pulseSensor.getBeatsPerMinute(); //add bpm to "bpm" variable in the data structure
     
-//    static uint8_t startIndex = 0;
-//    startIndex = startIndex + 1; /* motion speed */
+   //Serial.println(pulseSensor.getBeatsPerMinute());
+  
+   ETout.sendData();
+   counter = 0; //reset counter for the timer to send data
+  }
+
+
+
+/////////////////////////////////////Inner Calculations /////////////////////////////
+  ////////////////////////////////////////FAST LED//////////////////////////////////////////////
 
   int colorValue = map(sensorValue, 0 , 152, 255,0);
 
@@ -192,28 +231,26 @@ void loop() {
     FastLED.delay(1000 / UPDATES_PER_SECOND);
 
 
-
-  //DHT variables in Celsius
-  float humidity = dht.readHumidity();
-  float temp = dht.readTemperature();
-
-  /////////////////////////////// asign data to the structure /////////////////////////////////////////
-  if(counter == 8)//Send data once every two seconds
-  {
-
-    int myBPM = pulseSensor.getBeatsPerMinute();  // Calls function on our pulseSensor object that returns BPM as an "int".
-                                               // "myBPM" hold this BPM value now. 
-    data.bpm = pulseSensor.getBeatsPerMinute(); //add bpm to "bpm" variable in the data structure
-   
+///////////////////////////////////////
   
-   ETout.sendData();
-   counter = 0; //reset counter for the timer to send data
-  }
-
-
-
   
+
+
+
   delay(250); //delay so it doesn't freak out 
   acknowledge.received = false; //reset the acknowledgement of data received to set up new package
+}
+
+
+
+
+void heartBeat(){
+  int myHeart = myBPM / 60;
+for (int waveHeart = 0; waveHeart <=1; waveHeart++){
+  HMD.Waveform(seq, waveHeart);
+  HMD.go();
+  delay(200);
+  }
+  delay(myHeart);
 }
 
